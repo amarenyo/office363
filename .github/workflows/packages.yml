@@ -51,6 +51,13 @@ jobs:
         env:
           NO_STRIP: 'true'
         run: npm run tauri build -- --ci --bundles appimage,deb,rpm -- --locked
+      - name: Verify portable TLS and actual HTTPS dependency downloads
+        run: |
+          if readelf -d src-tauri/target/release/office363 | grep -E 'Shared library: \[lib(ssl|crypto)\.so'; then
+            echo 'The installer must not require a distribution-specific OpenSSL ABI.' >&2
+            exit 1
+          fi
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml --lib download_and_verify_dependencies_without_overwriting_runner -- --ignored
       - name: Check bundle metadata and prepare artifacts
         run: |
           mkdir artifacts

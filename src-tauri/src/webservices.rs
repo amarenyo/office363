@@ -78,3 +78,50 @@ async fn install_dll(
     fs::write(&temporary, bytes).map_err(|e| format!("WWSAPI write error: {e}"))?;
     fs::rename(&temporary, &target).map_err(|e| format!("WWSAPI installation: {e}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::symlink;
+
+    struct TestDirectory(std::path::PathBuf);
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "Downloads the pinned Microsoft dependencies over HTTPS"]
+    async fn download_and_verify_dependencies_without_overwriting_runner() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = TestDirectory(std::env::temp_dir().join(format!(
+            "office363-https-test-{}-{nonce}", std::process::id()
+        )));
+        let pfx = temp.0.join("pfx");
+        let system32 = pfx.join("drive_c/windows/system32");
+        let work = temp.0.join("work");
+        fs::create_dir_all(&system32).unwrap();
+        fs::create_dir_all(&work).unwrap();
+        let runner_dll = temp.0.join("shared-runner.dll");
+        fs::write(&runner_dll, b"shared runner must remain unchanged").unwrap();
+        for &(name, _, _) in DLLS {
+            symlink(&runner_dll, system32.join(format!("{name}.dll"))).unwrap();
+            fs::write(work.join(format!("{name}-x64.dll")), b"invalid cached download").unwrap();
+        }
+
+        install(&pfx, &work).await.unwrap();
+        for &(name, _, sha256) in DLLS {
+            let target = system32.join(format!("{name}.dll"));
+            assert!(!target.is_symlink());
+            assert!(verified(&fs::read(target).unwrap(), sha256));
+        }
+        assert_eq!(fs::read(runner_dll).unwrap(), b"shared runner must remain unchanged");
+        // A valid installation must also work after the download cache is removed.
+        fs::remove_dir_all(&work).unwrap();
+        install(&pfx, &work).await.unwrap();
+    }
+}
