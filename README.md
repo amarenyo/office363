@@ -91,6 +91,29 @@ Default locations use the current user's XDG local data directory, normally:
 
 Prefixes and diagnostic traces may contain account information or document data. Keep them out of Git and redact logs before sharing them.
 
+## Automated packages
+
+[Linux package workflow](https://github.com/amarenyo/office363/actions/workflows/packages.yml)
+
+Pushes to `main`, pull requests, version tags and manual workflow runs build these x86-64 artifacts:
+
+| Artifact | Build and installation checks |
+| --- | --- |
+| AppImage | Built on Ubuntu 22.04, extracted without FUSE, CLI and visible GUI startup tested |
+| DEB | Installed with APT on Ubuntu 22.04, metadata, CLI and visible GUI startup tested |
+| RPM | Built on Ubuntu 22.04, installed with DNF in Fedora 45, CLI and visible GUI startup tested |
+| `.pkg.tar.zst` | Built natively with `makepkg` on Arch Linux, installed with `pacman`, CLI and visible GUI startup tested |
+
+Download the artifacts and `SHA256SUMS` from a successful Actions run. The Arch artifact includes its generated `PKGBUILD` and can be installed on Arch-based systems such as CachyOS:
+
+```bash
+sudo pacman -U ./office363-*.pkg.tar.zst
+```
+
+CachyOS uses the Arch package format; this workflow tests Arch Linux rather than a separate CachyOS installation. No AUR submission is performed. To build the Arch package locally from a committed checkout, run `bash scripts/ci/prepare-arch.sh /tmp/office363-arch`, then run `makepkg -si` from that directory as a regular user with the listed build dependencies installed.
+
+CI checks package installation and installer startup. It does not install Microsoft 365, sign in to a Microsoft account or validate Office document editing and synchronization. GUI smoke tests use software rendering and disable the WebKit sandbox only inside the disposable CI environment. Passing these checks is not a promise of universal distribution or Office compatibility.
+
 ## Development
 
 | Path | Purpose |

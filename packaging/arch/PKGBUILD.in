@@ -1,0 +1,29 @@
+pkgname=office363
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Experimental Microsoft 365 installer for Linux using GE-Proton and ODT'
+arch=('x86_64')
+url='https://github.com/amarenyo/office363'
+license=('LGPL-2.1-only')
+depends=('webkit2gtk-4.1' 'gtk3' 'openssl' 'python' 'cabextract' 'tar' 'curl' 'hicolor-icon-theme')
+makedepends=('rust' 'nodejs' 'npm' 'pkgconf')
+optdepends=('winetricks: additional Wine dependency management' 'wine: optional system Direct2D compatibility DLL')
+options=('!lto')
+source=("office363-${pkgver}.tar.gz")
+sha256sums=('@SOURCE_SHA256@')
+
+build() {
+  cd "${srcdir}/office363-${pkgver}"
+  export CARGO_BUILD_JOBS=2
+  npm ci
+  npm run tauri build -- --ci --no-bundle -- --locked
+}
+
+package() {
+  cd "${srcdir}/office363-${pkgver}"
+  install -Dm755 src-tauri/target/release/office363 "${pkgdir}/usr/bin/office363"
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/office363/LICENSE"
+  install -Dm644 README.md "${pkgdir}/usr/share/doc/office363/README.md"
+  install -Dm644 packaging/arch/office363.desktop "${pkgdir}/usr/share/applications/office363.desktop"
+  install -Dm644 src-tauri/icons/128x128.png "${pkgdir}/usr/share/icons/hicolor/128x128/apps/office363.png"
+}

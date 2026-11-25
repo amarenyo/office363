@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Office363
+Comment=Install Microsoft 365 on Linux using GE-Proton and ODT
+Exec=office363
+Icon=office363
+Terminal=false
+Categories=Office;Utility;

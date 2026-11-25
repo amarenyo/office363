@@ -1,0 +1,148 @@
+name: Linux packages
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packages-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_BUILD_JOBS: '2'
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux:
+    name: AppImage, DEB and RPM
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libwebkit2gtk-4.1-dev libssl-dev librsvg2-dev patchelf rpm squashfs-tools file desktop-file-utils xvfb xauth xdotool dbus-x11 python3 cabextract tar curl gcc-mingw-w64-x86-64
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Install JavaScript dependencies
+        run: npm ci
+      - name: Build x64 shims from source
+        run: |
+          make -C shims/ole32 -B
+          make -C shims/sppc -B
+          make -C shims/inkobj -B
+          cp shims/inkobj/ms365ink.dll src-tauri/resources/ms365ink.dll
+          file src-tauri/resources/*.dll | tee /tmp/shim-types.txt
+          test "$(grep -c 'PE32+.*x86-64' /tmp/shim-types.txt)" = 3
+      - name: Build all three bundles with locked Rust dependencies
+        env:
+          NO_STRIP: 'true'
+        run: npm run tauri build -- --ci --bundles appimage,deb,rpm -- --locked
+      - name: Check bundle metadata and prepare artifacts
+        run: |
+          mkdir artifacts
+          cp src-tauri/target/release/bundle/appimage/*.AppImage artifacts/
+          cp src-tauri/target/release/bundle/deb/*.deb artifacts/
+          cp src-tauri/target/release/bundle/rpm/*.rpm artifacts/
+          test "$(find artifacts -maxdepth 1 -type f | wc -l)" = 3
+          dpkg-deb --info artifacts/*.deb
+          test "$(dpkg-deb -f artifacts/*.deb Architecture)" = amd64
+          rpm -qip artifacts/*.rpm
+          test "$(rpm -qp --qf '%{ARCH}' artifacts/*.rpm)" = x86_64
+          (cd artifacts && sha256sum ./* > SHA256SUMS)
+      - name: Install and smoke-test DEB on Ubuntu
+        run: |
+          sudo apt-get install -y ./artifacts/*.deb
+          bash scripts/ci/check-cli.sh /usr/bin/office363
+          desktop-file-validate /usr/share/applications/Office363.desktop
+          xvfb-run -a dbus-run-session -- bash scripts/ci/smoke-gui.sh /usr/bin/office363
+      - name: Extract and smoke-test AppImage without FUSE
+        run: |
+          image=$(realpath artifacts/*.AppImage)
+          chmod +x "$image"
+          work=$(mktemp -d)
+          cd "$work"
+          "$image" --appimage-extract > /dev/null
+          bash "$GITHUB_WORKSPACE/scripts/ci/check-cli.sh" "$work/squashfs-root/AppRun"
+          xvfb-run -a dbus-run-session -- bash "$GITHUB_WORKSPACE/scripts/ci/smoke-gui.sh" "$work/squashfs-root/AppRun"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-bundles-x86_64
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+  rpm-install:
+    name: Install RPM on Fedora
+    needs: linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: fedora:45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-bundles-x86_64
+          path: artifacts
+      - name: Install RPM and test the installed application
+        shell: bash
+        run: |
+          dnf install -y --nogpgcheck artifacts/*.rpm xorg-x11-server-Xvfb xauth xdotool dbus-daemon desktop-file-utils
+          bash scripts/ci/check-cli.sh /usr/bin/office363
+          desktop-file-validate /usr/share/applications/Office363.desktop
+          xvfb-run -a dbus-run-session -- bash scripts/ci/smoke-gui.sh /usr/bin/office363
+
+  arch:
+    name: Build and install Arch/CachyOS package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container: archlinux:base-devel
+    steps:
+      - name: Install build and smoke-test dependencies
+        run: pacman -Syu --noconfirm --needed git nodejs npm rust pkgconf webkit2gtk-4.1 gtk3 openssl librsvg python cabextract tar curl hicolor-icon-theme xorg-server-xvfb xorg-xauth xdotool dbus desktop-file-utils
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Prepare verified source archive and native PKGBUILD
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          bash scripts/ci/prepare-arch.sh /home/builder/packages
+          useradd -m builder
+          chown -R builder:builder /home/builder
+      - name: Build package as an unprivileged user
+        run: su builder -c 'cd /home/builder/packages && makepkg --noconfirm --cleanbuild'
+      - name: Inspect, install and smoke-test the Arch package
+        shell: bash
+        run: |
+          pacman -Qip /home/builder/packages/*.pkg.tar.zst
+          pacman -U --noconfirm /home/builder/packages/*.pkg.tar.zst
+          bash scripts/ci/check-cli.sh /usr/bin/office363
+          desktop-file-validate /usr/share/applications/office363.desktop
+          xvfb-run -a dbus-run-session -- bash scripts/ci/smoke-gui.sh /usr/bin/office363
+          cd /home/builder/packages
+          sha256sum ./*.pkg.tar.zst > SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: arch-cachyos-x86_64
+          path: |
+            /home/builder/packages/*.pkg.tar.zst
+            /home/builder/packages/PKGBUILD
+            /home/builder/packages/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
