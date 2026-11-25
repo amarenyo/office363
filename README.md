@@ -40,10 +40,10 @@ Microsoft Office and Microsoft runtime DLLs are not bundled with this repository
 
 ## Build and run
 
-Install Node.js/npm, Rust/Cargo and the Linux build dependencies for Tauri v2, including WebKitGTK 4.1 and GTK 3 development libraries.
+Install the GitHub CLI, Node.js/npm, Rust/Cargo and the Linux build dependencies for Tauri v2, including WebKitGTK 4.1 and GTK 3 development libraries.
 
 ```bash
-git clone https://github.com/amarenyo/office363.git
+gh repo clone amarenyo/office363
 cd office363
 npm ci
 npm run tauri dev
@@ -95,22 +95,30 @@ Prefixes and diagnostic traces may contain account information or document data.
 
 [Linux package workflow](https://github.com/amarenyo/office363/actions/workflows/packages.yml)
 
-Pushes to `main`, pull requests, version tags and manual workflow runs build these x86-64 artifacts:
+Full x86-64 package builds run **only on manual dispatch or version tags**. Relevant branch pushes and pull requests run cached frontend/Rust source checks; documentation-only changes skip the workflow. Cargo/npm caches and short artifact retention reduce repeated runner time and storage.
+
+Start a package build with:
+
+```bash
+gh workflow run packages.yml --repo amarenyo/office363 --ref main
+```
+
+Package artifacts:
 
 | Artifact | Build and installation checks |
 | --- | --- |
 | AppImage | Built on Ubuntu 22.04, extracted without FUSE, CLI and visible GUI startup tested |
 | DEB | Installed with APT on Ubuntu 22.04, metadata, CLI and visible GUI startup tested |
 | RPM | Built on Ubuntu 22.04, installed with DNF in Fedora 45, CLI and visible GUI startup tested |
-| `.pkg.tar.zst` | Built natively with `makepkg` on Arch Linux, installed with `pacman`, CLI and visible GUI startup tested |
+| `.pkg.tar.zst` | Repackaged with `makepkg` from the tested DEB executable, installed on Arch with `pacman`, CLI and visible GUI startup tested |
 
-Download the artifacts and `SHA256SUMS` from a successful Actions run. The Arch artifact includes its generated `PKGBUILD` and can be installed on Arch-based systems such as CachyOS:
+Download the artifacts and `SHA256SUMS` from a successful package run. Artifacts are retained for three days. The application is compiled once for all formats. The Arch artifact includes its generated binary `PKGBUILD` and can be installed on Arch-based systems such as CachyOS:
 
 ```bash
 sudo pacman -U ./office363-*.pkg.tar.zst
 ```
 
-CachyOS uses the Arch package format; this workflow tests Arch Linux rather than a separate CachyOS installation. No AUR submission is performed. To build the Arch package locally from a committed checkout, run `bash scripts/ci/prepare-arch.sh /tmp/office363-arch`, then run `makepkg -si` from that directory as a regular user with the listed build dependencies installed.
+CachyOS uses the Arch package format; this workflow tests Arch Linux rather than a separate CachyOS installation. No AUR submission is performed. A separate source-build recipe is also available. To build the Arch package natively from a committed checkout, run `bash scripts/ci/prepare-arch.sh /tmp/office363-arch`, then run `makepkg -si` from that directory as a regular user with the listed build dependencies installed.
 
 CI also checks that the executable does not directly require an OpenSSL ABI, and downloads the pinned OneNote dependencies over HTTPS into a temporary test prefix to verify certificate handling, hashes and safe replacement of runner symlinks.
 

@@ -4,7 +4,7 @@ Last updated: 2026-11-25.
 
 ## Scope and workflow
 
-Office363 is an experimental Tauri v2 installer for original 64-bit Microsoft 365 on Linux through umu-launcher and GE-Proton. Maintain the GUI and CLI together. Use English for interface text, logs, documentation and new commit messages. Keep changes in small, reviewable commits.
+Office363 is an experimental Tauri v2 installer for original 64-bit Microsoft 365 on Linux through umu-launcher and GE-Proton. Maintain the GUI and CLI together. Use English for interface text, logs, documentation and new commit messages. Keep changes in small, reviewable commits. Use `gh` for GitHub operations; local working-tree checks and commits can use Git.
 
 Only x64 Office is a supported target. Some Office packages contain x86 helper dependencies; copying those dependencies does not make 32-bit Office a supported installation mode.
 
@@ -97,3 +97,9 @@ Do not describe this as complete stability, full account compatibility or valida
 - Validate Outlook workflows end to end.
 - A previous VM repair test completed the new DLL/registry stages but timed out during a separate missing-WebView2 installation. It is not evidence of a full repair end-to-end pass.
 - Rebuild packages after source or embedded shim changes; locally cached binaries may predate the current source.
+
+## CI cost and packaging policy
+
+Full package builds are manual or version-tag only. Ordinary code pushes and pull requests run cached source checks; documentation-only changes skip CI. The Linux binary is compiled once and reused in the DEB, RPM, AppImage and Arch binary package. A native Arch source-build recipe remains available for manual use. Package artifacts expire after three days. Use `gh` for dispatching runs and all other GitHub operations.
+
+The Fedora installation check exposed a real OpenSSL ABI mismatch; the downloader now uses rustls with system certificate roots. GUI smoke tests install software-rendering support and use X11 without portals in disposable containers. They still require a visible window owned by the exact process under test.

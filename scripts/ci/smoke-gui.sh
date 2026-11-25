@@ -6,6 +6,10 @@ log=$(mktemp)
 export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
 export WEBKIT_DISABLE_DMABUF_RENDERER=1
 export LIBGL_ALWAYS_SOFTWARE=1
+export WEBKIT_DISABLE_COMPOSITING_MODE=1
+export GDK_BACKEND=x11
+export GTK_USE_PORTAL=0
+export GIO_USE_VFS=local
 "$app" >"$log" 2>&1 &
 pid=$!
 cleanup() {
@@ -15,12 +19,12 @@ cleanup() {
   rm -f "$log"
 }
 trap cleanup EXIT
-for attempt in $(seq 1 40); do
+for attempt in $(seq 1 120); do
   if ! kill -0 "$pid" 2>/dev/null; then
     echo 'Installer exited before its window appeared.' >&2
     exit 1
   fi
-  window=$(xdotool search --onlyvisible --name 'Office363' 2>/dev/null | head -n1 || true)
+  window=$(xdotool search --pid "$pid" --onlyvisible --name 'Office363' 2>/dev/null | head -n1 || true)
   if [[ -n "$window" ]]; then
     xdotool getwindowgeometry "$window"
     sleep 5

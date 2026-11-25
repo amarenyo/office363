@@ -1,0 +1,21 @@
+# Binary package built from the same tested executable as DEB/RPM/AppImage.
+pkgname=office363
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Experimental Microsoft 365 installer for Linux using GE-Proton and ODT'
+arch=('x86_64')
+url='https://github.com/amarenyo/office363'
+license=('LGPL-2.1-only')
+depends=('webkit2gtk-4.1' 'gtk3' 'python' 'cabextract' 'tar' 'curl' 'hicolor-icon-theme')
+optdepends=('winetricks: additional Wine dependency management' 'wine: optional system Direct2D compatibility DLL')
+options=('!strip' '!debug')
+source=("office363-${pkgver}-amd64.deb" 'LICENSE')
+noextract=("office363-${pkgver}-amd64.deb")
+sha256sums=('@DEB_SHA256@' '@LICENSE_SHA256@')
+
+package() {
+  local payload
+  payload=$(bsdtar -tf "${srcdir}/office363-${pkgver}-amd64.deb" | grep '^data.tar')
+  bsdtar -xOf "${srcdir}/office363-${pkgver}-amd64.deb" "$payload" | bsdtar -xpf - -C "$pkgdir"
+  install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/office363/LICENSE"
+}
