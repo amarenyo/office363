@@ -10,6 +10,7 @@ dist-packages/
 *.exe
 *.pdb
 *.dmp
+__pycache__/
 
 src-tauri/gen/
 shims/inkobj/ms365ink.dll

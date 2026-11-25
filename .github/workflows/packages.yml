@@ -22,8 +22,37 @@ env:
   PACKAGE_BUILD: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
+  version:
+    name: Validate version and release inputs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Check the central version and tag
+        id: version
+        run: |
+          version=$(node scripts/version.mjs --check)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+      - name: Test version synchronization and release asset validation
+        run: npm run test:release
+      - name: Refuse existing releases and conflicting tags before building
+        if: env.PACKAGE_BUILD == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/check-release.py
+
   linux:
     name: Source checks / Linux bundles
+    needs: version
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
@@ -40,7 +69,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             src-tauri/target
-          key: linux-ubuntu22-${{ env.PACKAGE_BUILD }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ hashFiles('src-tauri/src/**', 'src-tauri/Cargo.toml', 'src-tauri/build.rs', 'src-tauri/tauri.conf.json', 'src/**', 'index.html', 'shims/**') }}
+          key: linux-ubuntu22-${{ env.PACKAGE_BUILD }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ hashFiles('package.json', 'src-tauri/src/**', 'src-tauri/Cargo.toml', 'src-tauri/build.rs', 'src-tauri/tauri.conf.json', 'src/**', 'index.html', 'shims/**') }}
           restore-keys: |
             linux-ubuntu22-${{ env.PACKAGE_BUILD }}-${{ hashFiles('src-tauri/Cargo.lock') }}-
       - name: Install build dependencies
@@ -91,8 +120,10 @@ jobs:
           test "$(find artifacts -maxdepth 1 -type f | wc -l)" = 3
           dpkg-deb --info artifacts/*.deb
           test "$(dpkg-deb -f artifacts/*.deb Architecture)" = amd64
+          test "$(dpkg-deb -f artifacts/*.deb Version)" = '${{ needs.version.outputs.version }}'
           rpm -qip artifacts/*.rpm
           test "$(rpm -qp --qf '%{ARCH}' artifacts/*.rpm)" = x86_64
+          test "$(rpm -qp --qf '%{VERSION}' artifacts/*.rpm)" = '${{ needs.version.outputs.version }}'
           (cd artifacts && sha256sum ./* > SHA256SUMS)
       - name: Install and smoke-test DEB on Ubuntu
         if: env.PACKAGE_BUILD == 'true'
@@ -208,3 +239,26 @@ jobs:
             /home/builder/packages/SHA256SUMS
           if-no-files-found: error
           retention-days: 3
+
+  release:
+    name: Publish verified GitHub release
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    needs: [version, linux, rpm-install, arch]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: '*-x86_64'
+          path: release-artifacts
+      - name: Verify all four packages and assemble release checksums
+        run: python3 scripts/ci/prepare-release.py release-artifacts release-assets
+      - name: Publish the version tag and tested packages with gh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/ci/publish-release.sh release-assets

@@ -4,6 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "version:set": "node scripts/version.mjs",
+    "version:sync": "node scripts/version.mjs",
+    "version:check": "node scripts/version.mjs --check",
+    "version": "node scripts/version.mjs",
+    "test:release": "node --test scripts/tests/*.test.mjs && python3 -m unittest discover -s scripts/tests -p 'test_*.py'",
+    "prebuild": "npm run version:check",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",

@@ -30,6 +30,10 @@ The pinned runner is umu-launcher 1.4.4 with GE-Proton11-12-x86_64. Office is in
 
 ## Build and validation
 
+`package.json` is the authoritative application version. Use `npm run version:set -- MAJOR.MINOR.PATCH` to update the generated Cargo/npm copies; `npm run version:check` rejects drift. Tauri reads the version from `../package.json`, the frontend imports it, and `office363 --version` uses the checked Cargo value. Stable three-part versions are supported. Do not change generated version copies independently.
+
+Manual full package runs on main and matching version-tag runs publish a GitHub release after Ubuntu, Fedora and Arch checks pass. Publication uses `gh`, attaches all four formats, the binary Arch recipe and unified checksums, and creates the tag at the tested commit when needed. Existing releases/conflicting tags fail early; bump the version for the next release. Normal source pushes still run checks only. Run `npm run test:release` for version synchronization and release asset validation tests.
+
 ```bash
 npm ci
 npm run build

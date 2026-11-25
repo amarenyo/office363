@@ -11,6 +11,7 @@ fn print_help() {
 
 Usage:
   office363                         Open the graphical installer (GUI)
+  office363 --version                Show the application version
   office363 --check                  Check system dependencies
   office363 --install [OPTIONS]      Install Microsoft 365 from the terminal
   office363 --repair [--prefix PATH] Update shims, fonts, OneNote fixes and registry
@@ -44,6 +45,11 @@ pub fn maybe_run_cli() -> Option<i32> {
 
     if args.iter().any(|a| a == "-h" || a == "--help") {
         print_help();
+        return Some(0);
+    }
+
+    if args.iter().any(|a| a == "-V" || a == "--version") {
+        println!("Office363 {}", env!("CARGO_PKG_VERSION"));
         return Some(0);
     }
 

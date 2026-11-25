@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import "./styles.css";
+import { version } from "../package.json";
 import type { DetectedApp, InstallConfig, SystemCheckResult } from "./types";
 
 const ALL_APPS = [
@@ -329,7 +330,7 @@ function render() {
   appEl.innerHTML = `
     <div class="layout">
       <div class="header">
-        <h1>Office363</h1>
+        <h1>Office363 <small>v${version}</small></h1>
         <span class="badge">Microsoft 365 • GE-Proton + ODT</span>
       </div>
       <div class="steps">${stepsHtml}</div>

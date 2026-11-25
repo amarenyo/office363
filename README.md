@@ -91,17 +91,32 @@ Default locations use the current user's XDG local data directory, normally:
 
 Prefixes and diagnostic traces may contain account information or document data. Keep them out of Git and redact logs before sharing them.
 
+## Versioning and releases
+
+`package.json` is the single version source. Use stable `MAJOR.MINOR.PATCH` versions (no `v` prefix or prerelease suffix). The GUI imports that version, Tauri reads it directly through `../package.json`, and the CLI reports it with `office363 --version`. Arch recipes, package filenames and GitHub release tags use the same value.
+
+To change the version, run:
+
+```bash
+npm run version:set -- 0.2.0
+npm run version:check
+```
+
+The first command updates `package.json` and the generated Cargo/npm manifest and lockfile copies together. Commit those files together. `npm run version:sync` regenerates the copies after a manual edit to `package.json`. CI rejects mismatches, and Cargo also checks its version against the central source during compilation. `npm version --no-git-tag-version` uses the same synchronization hook.
+
 ## Automated packages
 
 [Linux package workflow](https://github.com/amarenyo/office363/actions/workflows/packages.yml)
 
 Full x86-64 package builds run **only on manual dispatch or version tags**. Relevant branch pushes and pull requests run cached frontend/Rust source checks; documentation-only changes skip the workflow. Cargo/npm caches and short artifact retention reduce repeated runner time and storage.
 
-Start a package build with:
+After committing and publishing the version change, start a package build and release with:
 
 ```bash
 gh workflow run packages.yml --repo amarenyo/office363 --ref main
 ```
+
+The workflow creates `v<version>` on its exact tested commit and publishes a GitHub release **only after all package installation/startup checks pass**. An existing matching version tag can also trigger the workflow; CI rejects tags that disagree with `package.json`. Release publication uses `gh` with write access limited to the final job. Existing releases are never overwritten; bump the version before starting the next release. Conflicting tags and existing releases are detected before the expensive build starts.
 
 Package artifacts:
 
@@ -112,7 +127,7 @@ Package artifacts:
 | RPM | Built on Ubuntu 22.04, installed with DNF in Fedora 45, CLI and visible GUI startup tested |
 | `.pkg.tar.zst` | Repackaged with `makepkg` from the tested DEB executable, installed on Arch with `pacman`, CLI and visible GUI startup tested |
 
-Download the artifacts and `SHA256SUMS` from a successful package run. Artifacts are retained for three days. The application is compiled once for all formats. The Arch artifact includes its generated binary `PKGBUILD` and can be installed on Arch-based systems such as CachyOS:
+Download all four packages, the binary `PKGBUILD` and combined `SHA256SUMS` from [GitHub Releases](https://github.com/amarenyo/office363/releases). Release assets remain available after the temporary workflow artifacts expire (three days). The application is compiled once for all formats. The Arch package can be installed on Arch-based systems such as CachyOS:
 
 ```bash
 sudo pacman -U ./office363-*.pkg.tar.zst

@@ -1,5 +1,6 @@
 [package]
 name = "office363"
+# Generated from package.json with npm run version:set -- MAJOR.MINOR.PATCH.
 version = "0.1.0"
 description = "Microsoft 365 Installer for Linux (Wine + Office Deployment Tool)"
 authors = ["Office363"]
@@ -10,6 +11,7 @@ name = "office363_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
+serde_json = "1"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]

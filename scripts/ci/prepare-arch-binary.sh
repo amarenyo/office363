@@ -3,7 +3,7 @@ set -euo pipefail
 root=$(git rev-parse --show-toplevel)
 input=$(realpath "${1:?Usage: prepare-arch-binary.sh ARTIFACT_DIRECTORY OUTPUT_DIRECTORY}")
 output=$(realpath -m "${2:?Missing output directory}")
-version=$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')
+version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$root/package.json")
 (cd "$input" && sha256sum --check --ignore-missing SHA256SUMS)
 mkdir -p "$output"
 cp "$input/Office363_${version}_amd64.deb" "$output/office363-${version}-amd64.deb"
