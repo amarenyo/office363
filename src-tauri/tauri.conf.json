@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Office363",
+  "version": "0.1.0",
+  "identifier": "com.office363.installer",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Office363 — Microsoft 365 Linux Installer",
+        "width": 1020,
+        "height": 740,
+        "minWidth": 860,
+        "minHeight": 620,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "rpm", "appimage"],
+    "category": "Productivity",
+    "shortDescription": "Microsoft 365 Linux Installer (GE-Proton + ODT)",
+    "longDescription": "Installs original 64-bit Microsoft 365 applications (Word, Excel, PowerPoint, Outlook and OneNote) on Linux using umu-launcher, GE-Proton11-12 and the Office Deployment Tool.",
+    "license": "LGPL-2.1",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png"
+    ],
+    "linux": {
+      "deb": {
+        "depends": ["python3", "cabextract", "tar", "curl"]
+      },
+      "rpm": {
+        "depends": ["python3", "cabextract", "tar", "curl"]
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  }
+}
